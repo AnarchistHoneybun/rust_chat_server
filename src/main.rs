@@ -5,23 +5,26 @@ use tokio::io::AsyncBufReadExt;
 async fn main() {
     let listener: TcpListener = TcpListener::bind("localhost:8080").await.unwrap();
 
-    let (mut socket, _addr) = listener.accept().await.unwrap();
-
-    let (read_half, mut write_half) = socket.split();
-
-    let mut reader = BufReader::new(read_half);
-    let mut line = String::new();
-
     loop {
+        let (mut socket, _addr) = listener.accept().await.unwrap();
 
-        let bytes_read = reader.read_line(&mut line).await.unwrap();
+        tokio::spawn(async move{
+            let (read_half, mut write_half) = socket.split();
 
-        if bytes_read == 0 {
-            break;
-        }
+            let mut reader = BufReader::new(read_half);
+            let mut line = String::new();
 
-        write_half.write_all(line.as_bytes()).await.unwrap();
-        line.clear();
+            loop {
+                let bytes_read = reader.read_line(&mut line).await.unwrap();
+
+                if bytes_read == 0 {
+                    break;
+                }
+
+                write_half.write_all(line.as_bytes()).await.unwrap();
+                line.clear();
+            }
+        });
     }
 
 }
