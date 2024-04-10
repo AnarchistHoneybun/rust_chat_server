@@ -42,6 +42,7 @@ async fn main() {
             // Add user to the list of users
             let mut users_guard = users.lock().await;
             users_guard.push(user_info);
+            drop(users_guard);
 
             let (read_half, mut write_half) = socket.split();
 
@@ -55,7 +56,8 @@ async fn main() {
                             break;
                         }
                         println!("Broadcasting message from {}: {}", username, line);
-                        tx.send((line.clone(), addr)).unwrap();
+                        let msg_with_username = format!("[{}] {}", username, line);
+                        tx.send((msg_with_username.clone(), addr)).unwrap();
 
                         line.clear();
                     },
@@ -65,7 +67,7 @@ async fn main() {
                         println!("Received message from another connection: {:?}", msg);
 
 
-                        write_half.write_all(msg.as_bytes()).await.unwrap();
+                        if addr != other_addr{write_half.write_all(msg.as_bytes()).await.unwrap();}
 
                         println!("Message sent to the user");
                     }
