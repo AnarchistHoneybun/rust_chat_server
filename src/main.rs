@@ -1,6 +1,6 @@
 use tokio::{io::{AsyncBufReadExt, AsyncWriteExt, BufReader}, net::TcpListener};
-use tokio::sync::{broadcast, Mutex};
-use std::sync::Arc;
+use tokio::sync::{broadcast, Mutex as TokioMutex};
+use std::sync::{Arc, Mutex};
 
 
 
@@ -17,7 +17,8 @@ async fn main() {
 
     let (tx, _rx) = broadcast::channel(10);
 
-    let users = Arc::new(Mutex::new(vec![]));
+    // let users = Arc::new(Mutex::new(vec![]));
+    let users = Arc::new(TokioMutex::new(vec![]));
 
     loop {
         let (mut socket, addr) = listener.accept().await.unwrap();
@@ -55,7 +56,7 @@ async fn main() {
                         }
 
                         // // Broadcast the message with the username
-                        // println!("Broadcasting message from {}: {}", username, line);
+                        println!("Broadcasting message from {}: {}", username, line);
                         // let mut receivers_count = 0;
                         // for user in users_guard.iter() {
                         //     let message = line.trim();
@@ -78,7 +79,9 @@ async fn main() {
                         println!("Received message from another connection: {:?}", msg);
 
 
-                        if addr != other_addr{write_half.write_all(msg.as_bytes()).await.unwrap();}
+                        write_half.write_all(msg.as_bytes()).await.unwrap();
+
+                        println!("Message sent to the user");
                     }
                 }
 
@@ -101,27 +104,27 @@ async fn ask_for_username(socket: &mut tokio::net::TcpStream) -> Result<String, 
     Ok(username.trim().to_string())
 }
 
-async fn broadcast_message(users: &Arc<Mutex<Vec<UserInfo>>>, username: &String, message: &String, tx: &broadcast::Sender<(String, std::net::SocketAddr)>) {
-    println!("Broadcasting message from {}: {}", username, message);
-    let users_guard = users.lock().await;
-
-    println!("Broadcasting message from {}: {}", username, message);
-
-    // Check if the users vector is empty
-    if users_guard.is_empty() {
-        println!("No users connected!");
-        return;
-    }
-
-    // Iterate over connected users and send the message
-    let mut receivers_count = 0;
-    for user in users_guard.iter() {
-        let message = message.trim();
-        let msg_with_username = format!("{}: {}", username, message);
-        tx.send((msg_with_username.clone(), user.addr)).unwrap();
-        receivers_count += 1;
-
-    }
-
-    println!("Message broadcasted to {} users", receivers_count);
-}
+// async fn broadcast_message(users: &Arc<Mutex<Vec<UserInfo>>>, username: &String, message: &String, tx: &broadcast::Sender<(String, std::net::SocketAddr)>) {
+//     println!("Broadcasting message from {}: {}", username, message);
+//     let users_guard = users.lock().await;
+//
+//     println!("Broadcasting message from {}: {}", username, message);
+//
+//     // Check if the users vector is empty
+//     if users_guard.is_empty() {
+//         println!("No users connected!");
+//         return;
+//     }
+//
+//     // Iterate over connected users and send the message
+//     let mut receivers_count = 0;
+//     for user in users_guard.iter() {
+//         let message = message.trim();
+//         let msg_with_username = format!("{}: {}", username, message);
+//         tx.send((msg_with_username.clone(), user.addr)).unwrap();
+//         receivers_count += 1;
+//
+//     }
+//
+//     println!("Message broadcasted to {} users", receivers_count);
+// }
