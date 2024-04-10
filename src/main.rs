@@ -54,21 +54,7 @@ async fn main() {
                         if result.unwrap() == 0 {
                             break;
                         }
-
-                        // // Broadcast the message with the username
                         println!("Broadcasting message from {}: {}", username, line);
-                        // let mut receivers_count = 0;
-                        // for user in users_guard.iter() {
-                        //     let message = line.trim();
-                        //     let msg_with_username = format!("{}: {}", username, message);
-                        //     if user.addr != users_guard[0].addr {
-                        //         tx.send((msg_with_username.clone(), user.addr)).unwrap();
-                        //         receivers_count += 1;
-                        //     }
-                        //
-                        // }
-                        // println!("Message broadcasted to {} users", receivers_count);
-                        // broadcast_message(&users, &username, &line, &tx).await;
                         tx.send((line.clone(), addr)).unwrap();
 
                         line.clear();
@@ -103,28 +89,3 @@ async fn ask_for_username(socket: &mut tokio::net::TcpStream) -> Result<String, 
 
     Ok(username.trim().to_string())
 }
-
-// async fn broadcast_message(users: &Arc<Mutex<Vec<UserInfo>>>, username: &String, message: &String, tx: &broadcast::Sender<(String, std::net::SocketAddr)>) {
-//     println!("Broadcasting message from {}: {}", username, message);
-//     let users_guard = users.lock().await;
-//
-//     println!("Broadcasting message from {}: {}", username, message);
-//
-//     // Check if the users vector is empty
-//     if users_guard.is_empty() {
-//         println!("No users connected!");
-//         return;
-//     }
-//
-//     // Iterate over connected users and send the message
-//     let mut receivers_count = 0;
-//     for user in users_guard.iter() {
-//         let message = message.trim();
-//         let msg_with_username = format!("{}: {}", username, message);
-//         tx.send((msg_with_username.clone(), user.addr)).unwrap();
-//         receivers_count += 1;
-//
-//     }
-//
-//     println!("Message broadcasted to {} users", receivers_count);
-// }
