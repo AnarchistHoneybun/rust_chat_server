@@ -58,6 +58,39 @@ async fn main() {
                             tx.send((dc_message.clone(), addr)).unwrap();
                             break;
                         }
+
+                        // check if incoming message is a list command
+                        if line.trim() == "/list" {
+                            let users_guard = users.lock().await;
+                            for user in users_guard.iter() {
+                                write_half.write_all(format!("[{}]\n", user.username).as_bytes()).await.unwrap();
+                            }
+                            line.clear();
+                            continue;
+                        }
+
+                        // check if incoming message is a private message
+                        // private messages start with /pm
+                        if line.trim().starts_with("/pm") {
+                            let mut parts = line.trim().split_whitespace();
+                            parts.next(); // skip /pm
+                            let recipient = parts.next().unwrap();
+                            let message = parts.collect::<Vec<&str>>().join(" ");
+                            let sender = username.clone();
+
+                            let users_guard = users.lock().await;
+                            let recipient_info = users_guard.iter().find(|u| u.username == recipient);
+                            if let Some(recipient_info) = recipient_info {
+                                let msg = format!("[PM] [{}] {}\n", sender, message);
+                                tx.send((msg.clone(), recipient_info.addr)).unwrap();
+                            } else {
+                                write_half.write_all(b"User not found\n").await.unwrap();
+                            }
+                            line.clear();
+                            continue;
+                        }
+
+
                         println!("Broadcasting message from {}: {}", username, line);
                         let msg_with_username = format!("[{}] {}", username, line);
                         tx.send((msg_with_username.clone(), addr)).unwrap();
@@ -66,6 +99,17 @@ async fn main() {
                     },
                     result = rx.recv() => {
                         let (msg, other_addr ) = result.unwrap();
+
+                        // check if incoming message is a private message
+                        // private messages start with [PM]
+
+                        if msg.starts_with("[PM]") {
+                            if addr == other_addr{
+                                write_half.write_all(msg.as_bytes()).await.unwrap();
+                                println!("Msg received by: {}", username);
+                            }
+                            continue;
+                        }
 
                         if addr != other_addr{
                             write_half.write_all(msg.as_bytes()).await.unwrap();
