@@ -56,6 +56,12 @@ async fn main() {
                             println!("{} disconnected", username);
                             let dc_message = format!("[i] {} disconnected\n", username);
                             tx.send((dc_message.clone(), addr)).unwrap();
+
+                            // remove disconnected user from the list
+                            let mut users_guard = users.lock().await;
+                            users_guard.retain(|u| u.username != username);
+                            drop(users_guard);
+
                             break;
                         }
 
