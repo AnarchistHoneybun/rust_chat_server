@@ -1,6 +1,6 @@
 use tokio::{io::{AsyncBufReadExt, AsyncWriteExt, BufReader}, net::TcpListener};
 use tokio::sync::{broadcast, Mutex as TokioMutex};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc};
 
 
 
@@ -53,6 +53,9 @@ async fn main() {
                 tokio::select! {
                     result = reader.read_line(&mut line) => {
                         if result.unwrap() == 0 {
+                            println!("{} disconnected", username);
+                            let dc_message = format!("[i] {} disconnected\n", username);
+                            tx.send((dc_message.clone(), addr)).unwrap();
                             break;
                         }
                         println!("Broadcasting message from {}: {}", username, line);
@@ -64,12 +67,11 @@ async fn main() {
                     result = rx.recv() => {
                         let (msg, other_addr ) = result.unwrap();
 
-                        println!("Received message from another connection: {:?}", msg);
+                        if addr != other_addr{
+                            write_half.write_all(msg.as_bytes()).await.unwrap();
+                            println!("Msg received by: {}", username);
+                        }
 
-
-                        if addr != other_addr{write_half.write_all(msg.as_bytes()).await.unwrap();}
-
-                        println!("Message sent to the user");
                     }
                 }
 
