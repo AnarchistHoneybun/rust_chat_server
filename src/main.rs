@@ -5,6 +5,7 @@ use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::TcpListener,
 };
+use tokio::net::tcp::WriteHalf;
 
 // Define a struct to store user information including their username
 #[derive(Debug)]
@@ -79,47 +80,29 @@ async fn main() {
                         let command = words.get(0).unwrap_or(&"");
 
                         match *command {
-                            "/list" => {
-                                let users_guard = users.lock().await;
-                                for user in users_guard.iter() {
-                                    write_half.write_all(format!("[{}]\n", user.username).as_bytes()).await.unwrap();
-                                }
-                            },
-                            "/report" => {
-                                if let Some(reported_user) = words.get(1) {
-                                    let users_guard = users.lock().await;
-                                    let reported_user_info = users_guard.iter().find(|u| u.username == *reported_user);
-                                    if let Some(_reported_user_info) = reported_user_info {
-                                        println!("User {} reported {}", username, reported_user);
-                                    } else {
-                                        write_half.write_all(format!("User {} does not exist\n", reported_user).as_bytes()).await.unwrap();
-                                    }
-                                } else {
-                                    println!("User {} attempted to report, but no username was provided", username);
-                                }
-                            },
-                            "/pm" => {
-                                let mut parts = line.trim().split_whitespace();
-                                parts.next(); // skip /pm
-                                let recipient = parts.next().unwrap();
-                                let message = parts.collect::<Vec<&str>>().join(" ");
-                                let sender = username.clone();
-
-                                let users_guard = users.lock().await;
-                                let recipient_info = users_guard.iter().find(|u| u.username == recipient);
-                                if let Some(recipient_info) = recipient_info {
-                                    let msg = format!("[PM] [{}] {}\n", sender, message);
-                                    tx.send((msg.clone(), recipient_info.addr)).unwrap();
-                                } else {
-                                    write_half.write_all(b"User not found\n").await.unwrap();
-                                }
-                            },
-                            _ => {
-                                println!("Broadcasting message from {}: {}", username, line);
-                                let msg_with_username = format!("[{}] {}", username, line);
-                                tx.send((msg_with_username.clone(), addr)).unwrap();
-                            }
-                        };
+                "/list" => {
+                    handle_list_command(&mut write_half, users.clone()).await;
+                },
+                "/report" => {
+                    if let Some(reported_user) = words.get(1) {
+                        handle_report_command(&mut write_half, reported_user, &username, users.clone()).await;
+                    } else {
+                        println!("User {} attempted to report, but no username was provided", username);
+                    }
+                },
+                "/pm" => {
+                    let mut parts = line.trim().split_whitespace();
+                    parts.next(); // skip /pm
+                    let recipient = parts.next().unwrap();
+                    let message = parts.collect::<Vec<&str>>().join(" ");
+                    handle_pm_command(&mut write_half, recipient, &message, &username, tx.clone(), users.clone()).await;
+                },
+                _ => {
+                    println!("Broadcasting message from {}: {}", username, line);
+                    let msg_with_username = format!("[{}] {}", username, line);
+                    tx.send((msg_with_username.clone(), addr)).unwrap();
+                }
+            };
 
                         line.clear();
                         continue;
@@ -148,6 +131,34 @@ async fn main() {
                 }
             }
         });
+    }
+}
+
+async fn handle_list_command(write_half: &mut WriteHalf<'_>, users: Arc<TokioMutex<Vec<UserInfo>>>) {
+    let users_guard = users.lock().await;
+    for user in users_guard.iter() {
+        write_half.write_all(format!("[{}]\n", user.username).as_bytes()).await.unwrap();
+    }
+}
+
+async fn handle_report_command(write_half: &mut WriteHalf<'_>, reported_user: &str, username: &str, users: Arc<TokioMutex<Vec<UserInfo>>>) {
+    let users_guard = users.lock().await;
+    let reported_user_info = users_guard.iter().find(|u| u.username == reported_user);
+    if let Some(_reported_user_info) = reported_user_info {
+        println!("User {} reported {}", username, reported_user);
+    } else {
+        write_half.write_all(format!("User {} does not exist\n", reported_user).as_bytes()).await.unwrap();
+    }
+}
+
+async fn handle_pm_command(write_half: &mut WriteHalf<'_>, recipient: &str, message: &str, sender: &str, tx: broadcast::Sender<(String, std::net::SocketAddr)>, users: Arc<TokioMutex<Vec<UserInfo>>>) {
+    let users_guard = users.lock().await;
+    let recipient_info = users_guard.iter().find(|u| u.username == recipient);
+    if let Some(recipient_info) = recipient_info {
+        let msg = format!("[PM] [{}] {}\n", sender, message);
+        tx.send((msg.clone(), recipient_info.addr)).unwrap();
+    } else {
+        write_half.write_all(b"User not found\n").await.unwrap();
     }
 }
 
