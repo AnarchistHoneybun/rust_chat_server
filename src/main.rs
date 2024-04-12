@@ -1,7 +1,7 @@
 use tokio::{io::{AsyncBufReadExt, AsyncWriteExt, BufReader}, net::TcpListener};
 use tokio::sync::{broadcast, Mutex as TokioMutex};
 use std::sync::{Arc};
-
+use local_ip_address::local_ip;
 
 
 // Define a struct to store user information including their username
@@ -13,7 +13,21 @@ struct UserInfo {
 
 #[tokio::main]
 async fn main() {
-    let listener: TcpListener = TcpListener::bind("localhost:8080").await.unwrap();
+
+    let local_ip = local_ip().unwrap();
+
+    let listener_result = TcpListener::bind("localhost:8080").await;
+
+    let listener = match listener_result {
+        Ok(listener) => {
+            println!("Server initialized on: {}:8080", local_ip);
+            listener
+        },
+        Err(e) => {
+            println!("Failed to bind to port 8080: {}", e);
+            return;
+        }
+    };
 
     let (tx, _rx) = broadcast::channel(10);
 
