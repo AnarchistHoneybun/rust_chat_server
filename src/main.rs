@@ -68,14 +68,7 @@ async fn main() {
                 tokio::select! {
                     result = reader.read_line(&mut line) => {
                         if let Ok(0) = result {
-                            println!("{} disconnected", username);
-                            let dc_message = format!("[i] {} disconnected\n", username);
-                            tx.send((dc_message.clone(), addr)).unwrap();
-
-                            // remove disconnected user from the list
-                            let mut users_guard = users.lock().await;
-                            users_guard.retain(|u| u.username != username);
-                            drop(users_guard);
+                            handle_user_disconnection(&username, &addr, tx.clone(), users.clone()).await;
 
                             break;
                         }
@@ -169,4 +162,15 @@ async fn ask_for_username(socket: &mut tokio::net::TcpStream) -> Result<String, 
     reader.read_line(&mut username).await?;
 
     Ok(username.trim().to_string())
+}
+
+async fn handle_user_disconnection(username: &str, addr: &std::net::SocketAddr, tx: broadcast::Sender<(String, std::net::SocketAddr)>, users: Arc<TokioMutex<Vec<UserInfo>>>) {
+    println!("{} disconnected", username);
+    let dc_message = format!("[i] {} disconnected\n", username);
+    tx.send((dc_message.clone(), *addr)).unwrap();
+
+    // remove disconnected user from the list
+    let mut users_guard = users.lock().await;
+    users_guard.retain(|u| u.username != username);
+    drop(users_guard);
 }
