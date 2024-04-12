@@ -30,10 +30,11 @@ in the console._
 - Clients will have to enter username when prompted
 
 _The code is tested for telnet connections, but in essence it should not matter 
-what client is used to connect. In case of any errors, please open an issue._
+what client is used. In case of any errors, please open an issue._
 
 ## Client Commands
 
 - `/list` - List all connected users
 - `/pm <username> <message>` - Send a private message to any connected user
 - `/report <username>` - Report a user to the server admin
+- `/exit` - Disconnect from the server
