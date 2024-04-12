@@ -1,11 +1,10 @@
 use local_ip_address::local_ip;
 use std::sync::Arc;
 use tokio::{
-    sync::{broadcast, Mutex as TokioMutex},
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
-    net::TcpListener,
+    net::{tcp::WriteHalf, TcpListener},
+    sync::{broadcast, Mutex as TokioMutex},
 };
-use tokio::net::tcp::WriteHalf;
 
 // Define a struct to store user information including their username
 #[derive(Debug)]
@@ -80,29 +79,33 @@ async fn main() {
                         let command = words.get(0).unwrap_or(&"");
 
                         match *command {
-                "/list" => {
-                    handle_list_command(&mut write_half, users.clone()).await;
-                },
-                "/report" => {
-                    if let Some(reported_user) = words.get(1) {
-                        handle_report_command(&mut write_half, reported_user, &username, users.clone()).await;
-                    } else {
-                        println!("User {} attempted to report, but no username was provided", username);
-                    }
-                },
-                "/pm" => {
-                    let mut parts = line.trim().split_whitespace();
-                    parts.next(); // skip /pm
-                    let recipient = parts.next().unwrap();
-                    let message = parts.collect::<Vec<&str>>().join(" ");
-                    handle_pm_command(&mut write_half, recipient, &message, &username, tx.clone(), users.clone()).await;
-                },
-                _ => {
-                    println!("Broadcasting message from {}: {}", username, line);
-                    let msg_with_username = format!("[{}] {}", username, line);
-                    tx.send((msg_with_username.clone(), addr)).unwrap();
-                }
-            };
+                            "/list" => {
+                                handle_list_command(&mut write_half, users.clone()).await;
+                            },
+                            "/report" => {
+                                if let Some(reported_user) = words.get(1) {
+                                    handle_report_command(&mut write_half, reported_user, &username, users.clone()).await;
+                                } else {
+                                    println!("User {} attempted to report, but no username was provided", username);
+                                }
+                            },
+                            "/pm" => {
+                                let mut parts = line.trim().split_whitespace();
+                                parts.next(); // skip /pm
+                                let recipient = parts.next().unwrap();
+                                let message = parts.collect::<Vec<&str>>().join(" ");
+                                handle_pm_command(&mut write_half, recipient, &message, &username, tx.clone(), users.clone()).await;
+                            },
+                            "/exit" => {
+                                handle_user_disconnection(&username, &addr, tx.clone(), users.clone()).await;
+                                break;
+                            },
+                            _ => {
+                                println!("Broadcasting message from {}: {}", username, line);
+                                let msg_with_username = format!("[{}] {}", username, line);
+                                tx.send((msg_with_username.clone(), addr)).unwrap();
+                            }
+                        };
 
                         line.clear();
                         continue;
@@ -134,24 +137,45 @@ async fn main() {
     }
 }
 
-async fn handle_list_command(write_half: &mut WriteHalf<'_>, users: Arc<TokioMutex<Vec<UserInfo>>>) {
+async fn handle_list_command(
+    write_half: &mut WriteHalf<'_>,
+    users: Arc<TokioMutex<Vec<UserInfo>>>,
+) {
     let users_guard = users.lock().await;
     for user in users_guard.iter() {
-        write_half.write_all(format!("[{}]\n", user.username).as_bytes()).await.unwrap();
+        write_half
+            .write_all(format!("[{}]\n", user.username).as_bytes())
+            .await
+            .unwrap();
     }
 }
 
-async fn handle_report_command(write_half: &mut WriteHalf<'_>, reported_user: &str, username: &str, users: Arc<TokioMutex<Vec<UserInfo>>>) {
+async fn handle_report_command(
+    write_half: &mut WriteHalf<'_>,
+    reported_user: &str,
+    username: &str,
+    users: Arc<TokioMutex<Vec<UserInfo>>>,
+) {
     let users_guard = users.lock().await;
     let reported_user_info = users_guard.iter().find(|u| u.username == reported_user);
     if let Some(_reported_user_info) = reported_user_info {
         println!("User {} reported {}", username, reported_user);
     } else {
-        write_half.write_all(format!("User {} does not exist\n", reported_user).as_bytes()).await.unwrap();
+        write_half
+            .write_all(format!("User {} does not exist\n", reported_user).as_bytes())
+            .await
+            .unwrap();
     }
 }
 
-async fn handle_pm_command(write_half: &mut WriteHalf<'_>, recipient: &str, message: &str, sender: &str, tx: broadcast::Sender<(String, std::net::SocketAddr)>, users: Arc<TokioMutex<Vec<UserInfo>>>) {
+async fn handle_pm_command(
+    write_half: &mut WriteHalf<'_>,
+    recipient: &str,
+    message: &str,
+    sender: &str,
+    tx: broadcast::Sender<(String, std::net::SocketAddr)>,
+    users: Arc<TokioMutex<Vec<UserInfo>>>,
+) {
     let users_guard = users.lock().await;
     let recipient_info = users_guard.iter().find(|u| u.username == recipient);
     if let Some(recipient_info) = recipient_info {
@@ -175,7 +199,12 @@ async fn ask_for_username(socket: &mut tokio::net::TcpStream) -> Result<String, 
     Ok(username.trim().to_string())
 }
 
-async fn handle_user_disconnection(username: &str, addr: &std::net::SocketAddr, tx: broadcast::Sender<(String, std::net::SocketAddr)>, users: Arc<TokioMutex<Vec<UserInfo>>>) {
+async fn handle_user_disconnection(
+    username: &str,
+    addr: &std::net::SocketAddr,
+    tx: broadcast::Sender<(String, std::net::SocketAddr)>,
+    users: Arc<TokioMutex<Vec<UserInfo>>>,
+) {
     println!("{} disconnected", username);
     let dc_message = format!("[i] {} disconnected\n", username);
     tx.send((dc_message.clone(), *addr)).unwrap();
