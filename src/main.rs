@@ -79,6 +79,8 @@ async fn main() {
                             break;
                         }
 
+                        // add a report feature
+
                         // check if incoming message is a list command
                         if line.trim() == "/list" {
                             let users_guard = users.lock().await;
