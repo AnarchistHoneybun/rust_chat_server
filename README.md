@@ -9,11 +9,11 @@ processing of connections and client inputs.
 - [x] Asynchronous message processing
 - [x] Concurrent connection/disconnection handling
 - [x] Usernames and private messaging
+- [x] Allows users to report other users
 
 ### Planned Features
 
 - [ ] Allows users to create rooms
-- [ ] Allows users to report other users
 - [ ] Admin user with special privileges
 
 ## Usage

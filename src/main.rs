@@ -1,8 +1,10 @@
-use tokio::{io::{AsyncBufReadExt, AsyncWriteExt, BufReader}, net::TcpListener};
-use tokio::sync::{broadcast, Mutex as TokioMutex};
-use std::sync::{Arc};
 use local_ip_address::local_ip;
-
+use std::sync::Arc;
+use tokio::{
+    sync::{broadcast, Mutex as TokioMutex},
+    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
+    net::TcpListener,
+};
 
 // Define a struct to store user information including their username
 #[derive(Debug)]
@@ -13,7 +15,6 @@ struct UserInfo {
 
 #[tokio::main]
 async fn main() {
-
     let local_ip = local_ip().unwrap();
 
     let listener_result = TcpListener::bind("localhost:8080").await;
@@ -22,7 +23,7 @@ async fn main() {
         Ok(listener) => {
             println!("Server initialized on: {}:8080", local_ip);
             listener
-        },
+        }
         Err(e) => {
             println!("Failed to bind to port 8080: {}", e);
             return;
@@ -42,7 +43,7 @@ async fn main() {
         let users = users.clone();
         let mut rx = tx.subscribe();
 
-        tokio::spawn(async move{
+        tokio::spawn(async move {
             // Ask for username
             let username = ask_for_username(&mut socket).await.unwrap();
             println!("User {} connected from: {}", username, addr);
@@ -66,7 +67,7 @@ async fn main() {
             loop {
                 tokio::select! {
                     result = reader.read_line(&mut line) => {
-                        if result.unwrap() == 0 {
+                        if let Ok(0) = result {
                             println!("{} disconnected", username);
                             let dc_message = format!("[i] {} disconnected\n", username);
                             tx.send((dc_message.clone(), addr)).unwrap();
@@ -152,11 +153,9 @@ async fn main() {
 
                     }
                 }
-
             }
         });
     }
-
 }
 
 async fn ask_for_username(socket: &mut tokio::net::TcpStream) -> Result<String, std::io::Error> {
