@@ -36,3 +36,4 @@ what client is used to connect. In case of any errors, please open an issue._
 
 - `/list` - List all connected users
 - `/pm <username> <message>` - Send a private message to any connected user
+- `/report <username>` - Report a user to the server admin
