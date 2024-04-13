@@ -171,7 +171,6 @@ async fn main() {
                                 }
                             },
 
-                            // TODO: add command to send messages to rooms
 
                             // command to send messages to rooms
                             // when used, checks if the sender is part of said room
@@ -271,12 +270,47 @@ async fn main() {
 
                         // TODO: check if incoming messages are from a room and format accordingly
 
+                        let msg_type = if msg.starts_with("[PM]") {
+                            "PM"
+                        } else if msg.starts_with("[glb]") {
+                            "GLB"
+                        } else {
+                            "ROOM"
+                        };
 
-                        if addr != other_addr{
-                            write_half.write_all(msg.as_bytes()).await.unwrap();
-                            println!("Msg received by: {}", username);
+
+                        match msg_type {
+                            "PM" => {
+                                if addr == other_addr {
+                                    write_half.write_all(msg.as_bytes()).await.unwrap();
+                                    println!("PM received by: {}", username);
+                                }
+                            },
+                            "GLB" => {
+                                if addr != other_addr {
+                                    write_half.write_all(msg.as_bytes()).await.unwrap();
+                                    println!("Global message received by: {}", username);
+                                }
+                            },
+                            "ROOM" => {
+                                if addr != other_addr {
+                                    // Extract room name from the message
+                                let room_name = msg.split_whitespace().next().unwrap().trim_start_matches('[').trim_end_matches(']');
+                                // Check if the user is in the room
+                                let users_guard = users.lock().await;
+                                let user = users_guard.iter().find(|u| u.username == username);
+                                if let Some(user) = user {
+                                    if user.rooms.contains(&room_name.to_string()) {
+                                        write_half.write_all(msg.as_bytes()).await.unwrap();
+                                        println!("Room message received by: {}", username);
+                                    }
+                                }
+                                }
+                            },
+                            _ => {
+                                println!("Unknown message type");
+                            }
                         }
-
                     }
                 }
             }
