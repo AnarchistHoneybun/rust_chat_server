@@ -52,3 +52,17 @@ pub(crate) async fn handle_pm_command(
         write_half.write_all(b"User not found\n").await.unwrap();
     }
 }
+
+pub(crate) async fn handle_help_command(write_half: &mut WriteHalf<'_>) {
+    let help_text = "/list - List all connected users
+/pm <username> <message> - Send a private message to any connected user
+/report <username> - Report a user to the server admin
+/exit - Disconnect from the server
+/create_room <room_name> - Create a new chat room
+/join_room <room_name> - Join an existing chat room
+/leave_room <room_name> - Leave a chat room
+/view_rooms - View all chat rooms
+/view_users <room_name> - View users in a specific chat room\n";
+
+    write_half.write_all(help_text.as_bytes()).await.unwrap();
+}

@@ -6,7 +6,7 @@ use tokio::{
     sync::{broadcast, Mutex as TokioMutex},
 };
 mod client_commands;
-use crate::client_commands::{handle_list_command, handle_pm_command, handle_report_command};
+use crate::client_commands::{handle_help_command, handle_list_command, handle_pm_command, handle_report_command};
 
 // Define a struct to store user information including their username
 #[derive(Debug)]
@@ -93,6 +93,9 @@ async fn main() {
                         let command = words.get(0).unwrap_or(&"");
 
                         match *command {
+                            "/help" => {
+                                handle_help_command(&mut write_half).await;
+                            },
                             "/create_room" => {
                                 let mut parts = line.trim().split_whitespace();
                                 parts.next(); // skip /create
@@ -168,7 +171,33 @@ async fn main() {
                                 }
                             },
 
-                            // TODO: add commands to send messages to rooms, and to list users in a room
+                            // TODO: add command to send messages to rooms
+
+                            // command to view users in a room
+                            // checks if the requesting user is a member of the room before listing users
+                            // if not a member, the user is informed that they are not a member of the room
+                            "/view_users" => {
+                                let mut parts = line.trim().split_whitespace();
+                                parts.next(); // skip /view_users
+                                let room_name = parts.next().unwrap();
+                                let rooms_guard = rooms.lock().await;
+                                let room = rooms_guard.iter().find(|r| r.name == room_name);
+                                if let Some(room) = room {
+                                    let user_in_room = room.users.iter().find(|u| u.username == username);
+                                    if let Some(_user_in_room) = user_in_room {
+                                        for user in room.users.iter() {
+                                            write_half
+                                                .write_all(format!("[{}]\n", user.username).as_bytes())
+                                                .await
+                                                .unwrap();
+                                        }
+                                    } else {
+                                        write_half.write_all(b"[i] Member lists are private. Join room to view.\n").await.unwrap();
+                                    }
+                                } else {
+                                    write_half.write_all(b"Room does not exist\n").await.unwrap();
+                                }
+                            },
 
                             "/list" => {
                                 handle_list_command(&mut write_half, users.clone()).await;
