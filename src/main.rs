@@ -100,14 +100,18 @@ async fn main() {
                                 let mut parts = line.trim().split_whitespace();
                                 parts.next(); // skip /create
                                 if let Some(room_name) = parts.next() {
-                                    let room = Room {
-                                        name: room_name.to_string(),
-                                        users: vec![],
-                                    };
-                                    let mut rooms_guard = rooms.lock().await;
-                                    rooms_guard.push(room);
-                                    drop(rooms_guard);
-                                    println!("Room {} created by {}", room_name, username);
+                                    if room_name == "glb" || room_name == "adm" {
+                                        write_half.write_all(b"Room name 'glb' or 'adm' is reserved\n").await.unwrap();
+                                    } else {
+                                        let room = Room {
+                                            name: room_name.to_string(),
+                                            users: vec![],
+                                        };
+                                        let mut rooms_guard = rooms.lock().await;
+                                        rooms_guard.push(room);
+                                        drop(rooms_guard);
+                                        println!("Room {} created by {}", room_name, username);
+                                    }
                                 } else {
                                     write_half.write_all(b"No room name provided\n").await.unwrap();
                                 }
