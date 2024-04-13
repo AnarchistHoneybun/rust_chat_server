@@ -187,10 +187,8 @@ async fn main() {
                                 if let Some(room) = room {
                                     let user_in_room = room.users.iter().find(|u| u.username == username);
                                     if let Some(_user_in_room) = user_in_room {
-                                        for user in room.users.iter() {
-                                            let msg_with_username = format!("[{}] {}\n", username, message);
-                                            tx.send((msg_with_username.clone(), user.addr)).unwrap();
-                                        }
+                                        let msg_with_username = format!("[{}] [{}] {}\n",room_name, username, message);
+                                        tx.send((msg_with_username.clone(), addr)).unwrap();
                                     } else {
                                         write_half.write_all(b"[i] You are not a member of this room\n").await.unwrap();
                                     }

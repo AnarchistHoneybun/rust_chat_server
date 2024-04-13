@@ -62,7 +62,8 @@ pub(crate) async fn handle_help_command(write_half: &mut WriteHalf<'_>) {
 /join_room <room_name> - Join an existing chat room
 /leave_room <room_name> - Leave a chat room
 /view_rooms - View all chat rooms
-/view_users <room_name> - View users in a specific chat room\n";
+/view_users <room_name> - View users in a specific chat room
+/m_room <room_name> <message> - Send a message to all users in a specific room\n";
 
     write_half.write_all(help_text.as_bytes()).await.unwrap();
 }
