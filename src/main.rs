@@ -15,6 +15,11 @@ struct UserInfo {
     addr: std::net::SocketAddr,
 }
 
+// TODO: Make a room struct
+
+// TODO: Make a room manager struct
+
+
 #[tokio::main]
 async fn main() {
     let local_ip = local_ip().unwrap();
@@ -36,6 +41,8 @@ async fn main() {
 
     // let users = Arc::new(Mutex::new(vec![]));
     let users = Arc::new(TokioMutex::new(vec![]));
+
+    // TODO: Initialize room manager
 
     loop {
         let (mut socket, addr) = listener.accept().await.unwrap();
@@ -81,6 +88,8 @@ async fn main() {
                         let command = words.get(0).unwrap_or(&"");
 
                         match *command {
+                            // TODO: Add commands to create, join, and leave rooms
+
                             "/list" => {
                                 handle_list_command(&mut write_half, users.clone()).await;
                             },
@@ -126,6 +135,9 @@ async fn main() {
                             }
                             continue;
                         }
+
+                        // TODO: check if incoming messages are from a room and format accordingly
+
 
                         if addr != other_addr{
                             write_half.write_all(msg.as_bytes()).await.unwrap();
