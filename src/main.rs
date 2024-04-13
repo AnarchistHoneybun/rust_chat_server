@@ -173,6 +173,32 @@ async fn main() {
 
                             // TODO: add command to send messages to rooms
 
+                            // command to send messages to rooms
+                            // when used, checks if the sender is part of said room
+                            // if true, sends the message to all users in the room
+                            // if false, informs the user that they are not part of the room
+                            "/m_room" => {
+                                let mut parts = line.trim().split_whitespace();
+                                parts.next(); // skip /m_room
+                                let room_name = parts.next().unwrap();
+                                let message = parts.collect::<Vec<&str>>().join(" ");
+                                let rooms_guard = rooms.lock().await;
+                                let room = rooms_guard.iter().find(|r| r.name == room_name);
+                                if let Some(room) = room {
+                                    let user_in_room = room.users.iter().find(|u| u.username == username);
+                                    if let Some(_user_in_room) = user_in_room {
+                                        for user in room.users.iter() {
+                                            let msg_with_username = format!("[{}] {}\n", username, message);
+                                            tx.send((msg_with_username.clone(), user.addr)).unwrap();
+                                        }
+                                    } else {
+                                        write_half.write_all(b"[i] You are not a member of this room\n").await.unwrap();
+                                    }
+                                } else {
+                                    write_half.write_all(b"Room does not exist\n").await.unwrap();
+                                }
+                            },
+
                             // command to view users in a room
                             // checks if the requesting user is a member of the room before listing users
                             // if not a member, the user is informed that they are not a member of the room
@@ -222,7 +248,7 @@ async fn main() {
                             },
                             _ => {
                                 println!("Broadcasting message from {}: {}", username, line);
-                                let msg_with_username = format!("[{}] {}", username, line);
+                                let msg_with_username = format!("[glb] [{}] {}", username, line);
                                 tx.send((msg_with_username.clone(), addr)).unwrap();
                             }
                         };
