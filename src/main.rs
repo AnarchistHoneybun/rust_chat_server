@@ -13,11 +13,14 @@ use crate::client_commands::{handle_list_command, handle_pm_command, handle_repo
 struct UserInfo {
     username: String,
     addr: std::net::SocketAddr,
+    rooms: Vec<String>,
 }
 
-// TODO: Make a room struct
-
-// TODO: Make a room manager struct
+#[derive(Debug)]
+struct Room {
+    name: String,
+    users: Vec<UserInfo>,
+}
 
 
 #[tokio::main]
@@ -42,7 +45,7 @@ async fn main() {
     // let users = Arc::new(Mutex::new(vec![]));
     let users = Arc::new(TokioMutex::new(vec![]));
 
-    // TODO: Initialize room manager
+    let rooms = Arc::new(TokioMutex::new(vec![]));
 
     loop {
         let (mut socket, addr) = listener.accept().await.unwrap();
@@ -50,6 +53,7 @@ async fn main() {
 
         let tx = tx.clone();
         let users = users.clone();
+        let rooms = rooms.clone();
         let mut rx = tx.subscribe();
 
         tokio::spawn(async move {
@@ -61,6 +65,7 @@ async fn main() {
             let user_info = UserInfo {
                 username: username.clone(),
                 addr,
+                rooms: vec![],
             };
 
             // Add user to the list of users
@@ -88,7 +93,82 @@ async fn main() {
                         let command = words.get(0).unwrap_or(&"");
 
                         match *command {
-                            // TODO: Add commands to create, join, and leave rooms
+                            "/create_room" => {
+                                let mut parts = line.trim().split_whitespace();
+                                parts.next(); // skip /create
+                                let room_name = parts.next().unwrap();
+                                let room = Room {
+                                    name: room_name.to_string(),
+                                    users: vec![],
+                                };
+                                let mut rooms_guard = rooms.lock().await;
+                                rooms_guard.push(room);
+                                drop(rooms_guard);
+                                println!("Room {} created by {}", room_name, username);
+                            },
+                            "/join_room" => {
+                                let mut parts = line.trim().split_whitespace();
+                                parts.next(); // skip /join
+                                let room_name = parts.next().unwrap();
+                                let mut rooms_guard = rooms.lock().await;
+                                let room = rooms_guard.iter_mut().find(|r| r.name == room_name);
+                                if let Some(room) = room {
+                                    room.users.push(UserInfo {
+                                        username: username.clone(),
+                                        addr,
+                                        rooms: vec![room_name.to_string()],
+                                    });
+                                    // add room to user's list of rooms
+                                    let mut users_guard = users.lock().await;
+                                    let user = users_guard.iter_mut().find(|u| u.username == username);
+                                    if let Some(user) = user {
+                                        user.rooms.push(room_name.to_string());
+                                    }
+                                    drop(users_guard);
+                                    println!("User {} joined room {}", username, room_name);
+                                    // write to user that they joined the room
+                                    write_half.write_all(format!("You joined room {}\n", room_name).as_bytes()).await.unwrap();
+                                } else {
+                                    println!("Room {} does not exist", room_name);
+                                    // write to user that the room does not exist
+                                    write_half.write_all(format!("Room {} does not exist\n", room_name).as_bytes()).await.unwrap();
+                                }
+                            },
+                            "/leave_room" => {
+                                let mut parts = line.trim().split_whitespace();
+                                parts.next(); // skip /leave
+                                let room_name = parts.next().unwrap();
+                                let mut rooms_guard = rooms.lock().await;
+                                let room = rooms_guard.iter_mut().find(|r| r.name == room_name);
+                                if let Some(room) = room {
+                                    room.users.retain(|u| u.username != username);
+                                    // remove room from user's list of rooms
+                                    let mut users_guard = users.lock().await;
+                                    let user = users_guard.iter_mut().find(|u| u.username == username);
+                                    if let Some(user) = user {
+                                        user.rooms.retain(|r| r != room_name);
+                                    }
+                                    drop(users_guard);
+                                    println!("User {} left room {}", username, room_name);
+                                    // write to user that they left the room
+                                    write_half.write_all(format!("You left room {}\n", room_name).as_bytes()).await.unwrap();
+                                } else {
+                                    println!("Room {} does not exist", room_name);
+                                    // write to user that the room does not exist
+                                    write_half.write_all(format!("Room {} does not exist\n", room_name).as_bytes()).await.unwrap();
+                                }
+                            },
+                            "/view_rooms" => {
+                                let rooms_guard = rooms.lock().await;
+                                for room in rooms_guard.iter() {
+                                    write_half
+                                        .write_all(format!("[{}]\n", room.name).as_bytes())
+                                        .await
+                                        .unwrap();
+                                }
+                            },
+
+                            // TODO: add commands to send messages to rooms, and to list users in a room
 
                             "/list" => {
                                 handle_list_command(&mut write_half, users.clone()).await;
