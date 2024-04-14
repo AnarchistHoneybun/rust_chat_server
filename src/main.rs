@@ -6,13 +6,24 @@ use tokio::{
     sync::{broadcast, Mutex as TokioMutex},
 };
 mod client_commands;
-use crate::client_commands::{handle_list_command, handle_pm_command, handle_report_command};
+use crate::client_commands::{
+    handle_create_room_command, handle_help_command, handle_join_room_command,
+    handle_leave_room_command, handle_list_command, handle_m_room_command, handle_pm_command,
+    handle_report_command, handle_view_users_command,
+};
 
 // Define a struct to store user information including their username
 #[derive(Debug)]
 struct UserInfo {
     username: String,
     addr: std::net::SocketAddr,
+    rooms: Vec<String>,
+}
+
+#[derive(Debug)]
+struct Room {
+    name: String,
+    users: Vec<UserInfo>,
 }
 
 #[tokio::main]
@@ -37,12 +48,15 @@ async fn main() {
     // let users = Arc::new(Mutex::new(vec![]));
     let users = Arc::new(TokioMutex::new(vec![]));
 
+    let rooms = Arc::new(TokioMutex::new(vec![]));
+
     loop {
         let (mut socket, addr) = listener.accept().await.unwrap();
         println!("New connection from: {}", addr);
 
         let tx = tx.clone();
         let users = users.clone();
+        let rooms = rooms.clone();
         let mut rx = tx.subscribe();
 
         tokio::spawn(async move {
@@ -54,6 +68,7 @@ async fn main() {
             let user_info = UserInfo {
                 username: username.clone(),
                 addr,
+                rooms: vec![],
             };
 
             // Add user to the list of users
@@ -81,6 +96,34 @@ async fn main() {
                         let command = words.get(0).unwrap_or(&"");
 
                         match *command {
+                            "/help" => {
+                                handle_help_command(&mut write_half).await;
+                            },
+                            "/create_room" => {
+                                handle_create_room_command(&mut write_half, &line, &username, rooms.clone()).await;
+                            },
+                            "/join_room" => {
+                                handle_join_room_command(&mut write_half, &line, &username, addr, rooms.clone(), users.clone()).await;
+                            },
+                            "/leave_room" => {
+                                handle_leave_room_command(&mut write_half, &line, &username, rooms.clone(), users.clone()).await;
+                            },
+                            "/m_room" => {
+                                handle_m_room_command(&mut write_half, &line, &username, addr, tx.clone(), rooms.clone()).await;
+                            },
+                            "/view_users" => {
+                                handle_view_users_command(&mut write_half, &line, &username, rooms.clone()).await;
+                            },
+                            "/view_rooms" => {
+                                let rooms_guard = rooms.lock().await;
+                                for room in rooms_guard.iter() {
+                                    write_half
+                                        .write_all(format!("[{}]\n", room.name).as_bytes())
+                                        .await
+                                        .unwrap();
+                                }
+                            },
+
                             "/list" => {
                                 handle_list_command(&mut write_half, users.clone()).await;
                             },
@@ -104,7 +147,7 @@ async fn main() {
                             },
                             _ => {
                                 println!("Broadcasting message from {}: {}", username, line);
-                                let msg_with_username = format!("[{}] {}", username, line);
+                                let msg_with_username = format!("[glb] [{}] {}", username, line);
                                 tx.send((msg_with_username.clone(), addr)).unwrap();
                             }
                         };
@@ -127,11 +170,55 @@ async fn main() {
                             continue;
                         }
 
-                        if addr != other_addr{
-                            write_half.write_all(msg.as_bytes()).await.unwrap();
-                            println!("Msg received by: {}", username);
-                        }
 
+                        let msg_type = if msg.starts_with("[PM]") {
+                            "PM"
+                        } else if msg.starts_with("[glb]") {
+                            "GLB"
+                        } else if msg.starts_with("[i]") {
+                            "INFO"
+                        } else {
+                            "ROOM"
+                        };
+
+
+                        match msg_type {
+                            "PM" => {
+                                if addr == other_addr {
+                                    write_half.write_all(msg.as_bytes()).await.unwrap();
+                                    println!("PM received by: {}", username);
+                                }
+                            },
+                            "GLB" => {
+                                if addr != other_addr {
+                                    write_half.write_all(msg.as_bytes()).await.unwrap();
+                                    println!("Global message received by: {}", username);
+                                }
+                            },
+                            "INFO" => {
+                                if addr != other_addr {
+                                    write_half.write_all(msg.as_bytes()).await.unwrap();
+                                }
+                            },
+                            "ROOM" => {
+                                if addr != other_addr {
+                                    // Extract room name from the message
+                                let room_name = msg.split_whitespace().next().unwrap().trim_start_matches('[').trim_end_matches(']');
+                                // Check if the user is in the room
+                                let users_guard = users.lock().await;
+                                let user = users_guard.iter().find(|u| u.username == username);
+                                if let Some(user) = user {
+                                    if user.rooms.contains(&room_name.to_string()) {
+                                        write_half.write_all(msg.as_bytes()).await.unwrap();
+                                        println!("Room message received by: {}", username);
+                                    }
+                                }
+                                }
+                            },
+                            _ => {
+                                println!("Unknown message type");
+                            }
+                        }
                     }
                 }
             }
