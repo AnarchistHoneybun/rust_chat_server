@@ -97,7 +97,7 @@ async fn main() {
 
                         match *command {
                             "/help" => {
-                                handle_help_command(&mut write_half).await;
+                                handle_help_command(&mut write_half, &line).await;
                             },
                             "/create_room" => {
                                 handle_create_room_command(&mut write_half, &line, &username, rooms.clone()).await;
