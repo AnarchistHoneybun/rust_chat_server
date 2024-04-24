@@ -256,61 +256,75 @@ pub(crate) async fn handle_help_command(write_half: &mut WriteHalf<'_>, line: &s
     if let Some(command) = parts.next() {
         match command {
             "/create_room" => {
-                write_half.write_all(b"\n/create_room <room_name> - Create a new chat room.\nUse an underscore between multi-word room names.\nRoom names 'glb' and 'adm' are reserved.\n").await.unwrap();
+                write_half.write_all(b"\n/create_room <room_name> - Create a new chat room.\nUse an underscore between multi-word room names.\nRoom names 'glb' and 'adm' are reserved.\n\n")
+                    .await
+                    .unwrap();
             }
             "/join_room" => {
-                write_half.write_all(b"/join_room <room_name> - Join an existing chat room.\nYou must provide a valid room name.\n").await.unwrap();
+                write_half.write_all(b"\n/join_room <room_name> - Join an existing chat room.\nYou must provide a valid room name.\nUse '/view_rooms' to list available rooms.\n\n")
+                    .await
+                    .unwrap();
             }
             "/view_rooms" => {
                 write_half
-                    .write_all(b"/view_rooms - View all chat rooms.\n")
+                    .write_all(b"\n/view_rooms - View all chat rooms.\n\n")
                     .await
                     .unwrap();
             }
             "/leave_room" => {
-                write_half.write_all(b"/leave_room <room_name> - Leave a chat room.\nYou must be a member of the room to leave it.\n").await.unwrap();
+                write_half.write_all(b"\n/leave_room <room_name> - Leave a chat room.\nYou must be a member of the room to leave it.\n\n")
+                    .await
+                    .unwrap();
             }
             "/m_room" => {
-                write_half.write_all(b"/m_room <room_name> <message> - Send a message to all users in a specific room.\nYou must be a member of the room to send a message.\n").await.unwrap();
+                write_half.write_all(b"\n/m_room <room_name> <message> - Send a message to all users in a specific room.\nYou must be a member of the room to send a message.\n\n")
+                    .await
+                    .unwrap();
             }
             "/view_users" => {
-                write_half.write_all(b"/view_users <room_name> - View users in a specific chat room.\nYou must be a member of the room to view its users.\n").await.unwrap();
+                write_half.write_all(b"\n/view_users <room_name> - View users in a specific chat room.\nYou must be a member of the room to view its users.\n\n")
+                    .await
+                    .unwrap();
             }
             "/list" => {
                 write_half
-                    .write_all(b"/list - List all connected users.\n")
+                    .write_all(b"\n/list - List all connected users.\n\n")
                     .await
                     .unwrap();
             }
             "/report" => {
-                write_half.write_all(b"/report <username> - Report a user to the server admin.\nYou must provide a valid username.\n").await.unwrap();
+                write_half.write_all(b"\n/report <username> - Report a user to the server admin.\nYou must provide a valid username.\n\n")
+                    .await
+                    .unwrap();
             }
             "/pm" => {
-                write_half.write_all(b"/pm <username> <message> - Send a private message to any connected user.\nYou must provide a valid username and a message.\n").await.unwrap();
+                write_half.write_all(b"\n/pm <username> <message> - Send a private message to any connected user.\nYou must provide a valid username and a message.\n\n")
+                    .await
+                    .unwrap();
             }
             "/exit" => {
                 write_half
-                    .write_all(b"/exit - Disconnect from the server.\n")
+                    .write_all(b"\n/exit - Disconnect from the server.\n\n")
                     .await
                     .unwrap();
             }
             _ => {
-                write_half.write_all(b"Command not found\n").await.unwrap();
+                write_half.write_all(b"\nCommand not found\n\n").await.unwrap();
             }
         }
     } else {
         let help_text = "\nuse /help <command> to get details on a specific command\n
         
-/list - List all connected users
-/pm <username> <message> - Send a private message to any connected user
-/report <username> - Report a user to the server admin
-/exit - Disconnect from the server
-/create_room <room_name> - Create a new chat room
-/join_room <room_name> - Join an existing chat room
-/leave_room <room_name> - Leave a chat room
-/view_rooms - View all chat rooms
-/view_users <room_name> - View users in a specific chat room
-/m_room <room_name> <message> - Send a message to all users in a specific room\n";
+/list        - List all connected users
+/pm          - Send a private message to any connected user
+/report      - Report a user to the server admin
+/exit        - Disconnect from the server
+/create_room - Create a new chat room
+/join_room   - Join an existing chat room
+/leave_room  - Leave a chat room
+/view_rooms  - View all chat rooms
+/view_users  - View users in a specific chat room
+/m_room      - Send a message to all users in a specific room\n";
 
         write_half.write_all(help_text.as_bytes()).await.unwrap();
     }
