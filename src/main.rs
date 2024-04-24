@@ -30,7 +30,7 @@ struct Room {
 async fn main() {
     let local_ip = local_ip().unwrap();
 
-    let listener_result = TcpListener::bind("localhost:8080").await;
+    let listener_result = TcpListener::bind("0.0.0.0:8080").await;
 
     let listener = match listener_result {
         Ok(listener) => {
