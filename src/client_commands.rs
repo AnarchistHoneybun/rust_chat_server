@@ -1,8 +1,11 @@
 use crate::{Room, UserInfo};
+use crate::color_codes;
 use std::sync::Arc;
 use tokio::io::AsyncWriteExt;
 use tokio::net::tcp::WriteHalf;
 use tokio::sync::{broadcast, Mutex as TokioMutex};
+
+
 
 pub(crate) async fn handle_create_room_command(
     write_half: &mut WriteHalf<'_>,
@@ -309,7 +312,7 @@ pub(crate) async fn handle_help_command(write_half: &mut WriteHalf<'_>, line: &s
                     .unwrap();
             }
             _ => {
-                write_half.write_all(b"\nCommand not found\n\n").await.unwrap();
+                write_half.write_all(format!("\n{}Command not found{}\n\n", color_codes::RED, color_codes::RESET).as_bytes()).await.unwrap();
             }
         }
     } else {

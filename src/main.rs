@@ -6,6 +6,8 @@ use tokio::{
     sync::{broadcast, Mutex as TokioMutex},
 };
 mod client_commands;
+mod color_codes;
+
 use crate::client_commands::{
     handle_create_room_command, handle_help_command, handle_join_room_command,
     handle_leave_room_command, handle_list_command, handle_m_room_command, handle_pm_command,
