@@ -98,7 +98,27 @@ async fn main() {
 
                             match *command {
                                 "/help" => {
-                                    handle_help_command(&mut write_half, &line).await;
+
+                                    // print the bulk help message here instead of making the function call
+                                    if line.trim() == "/help" {
+                                        let help_text = format!("\n{}use /help <command> to get details on a specific command{}\n
+{}/list        - List all connected users
+/pm          - Send a private message to any connected user
+/report      - Report a user to the server admin
+/exit        - Disconnect from the server
+/create_room - Create a new chat room
+/join_room   - Join an existing chat room
+/leave_room  - Leave a chat room
+/view_rooms  - View all chat rooms
+/view_users  - View users in a specific chat room
+/m_room      - Send a message to all users in a specific room{}\n\n", color_codes::GREEN, color_codes::RESET, color_codes::YELLOW, color_codes::RESET);
+
+                                            write_half.write_all(help_text.as_bytes()).await.unwrap();
+                                    } else {
+                                        handle_help_command(&mut write_half, &line).await;
+                                    }
+
+
                                 },
                                 "/create_room" => {
                                     handle_create_room_command(&mut write_half, &line, &username, rooms.clone()).await;

@@ -256,7 +256,8 @@ pub(crate) async fn handle_pm_command(
 pub(crate) async fn handle_help_command(write_half: &mut WriteHalf<'_>, line: &str) {
     let mut parts = line.trim().split_whitespace();
     parts.next(); // skip /help
-    if let Some(command) = parts.next() {
+
+    while let Some(command) = parts.next() {
         match command {
             "/create_room" => {
                 write_half.write_all(format!("{}\n/create_room <room_name> - Create a new chat room.\nUse an underscore between multi-word room names.\nRoom names 'glb' and 'adm' are reserved.\n{}\n", color_codes::YELLOW,color_codes::RESET).as_bytes())
@@ -309,22 +310,9 @@ pub(crate) async fn handle_help_command(write_half: &mut WriteHalf<'_>, line: &s
                     .unwrap();
             }
             _ => {
-                write_half.write_all(format!("{}\nCommand not found{}\n\n", color_codes::RED, color_codes::RESET).as_bytes()).await.unwrap();
+                write_half.write_all(format!("{}\nNo such command{}\n\n", color_codes::RED, color_codes::RESET).as_bytes()).await.unwrap();
+                break;
             }
         }
-    } else {
-        let help_text = format!("{}use /help <command> to get details on a specific command{}\n
-        {}/list        - List all connected users
-        /pm          - Send a private message to any connected user
-        /report      - Report a user to the server admin
-        /exit        - Disconnect from the server
-        /create_room - Create a new chat room
-        /join_room   - Join an existing chat room
-        /leave_room  - Leave a chat room
-        /view_rooms  - View all chat rooms
-        /view_users  - View users in a specific chat room
-        /m_room      - Send a message to all users in a specific room{}\n\n", color_codes::GREEN, color_codes::RESET, color_codes::YELLOW, color_codes::RESET);
-
-        write_half.write_all(help_text.as_bytes()).await.unwrap();
     }
 }
