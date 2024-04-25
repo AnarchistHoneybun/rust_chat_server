@@ -6,6 +6,7 @@ use tokio::{
     sync::{broadcast, Mutex as TokioMutex},
 };
 mod client_commands;
+mod color_codes;
 use crate::client_commands::{
     handle_create_room_command, handle_help_command, handle_join_room_command,
     handle_leave_room_command, handle_list_command, handle_m_room_command, handle_pm_command,
@@ -90,67 +91,69 @@ async fn main() {
                             break;
                         }
 
-                        // reconfigure if statements to a match statement
 
-                        let words: Vec<&str> = line.trim().split_whitespace().collect();
-                        let command = words.get(0).unwrap_or(&"");
+                        if line.starts_with('/') {
+                            let words: Vec<&str> = line.trim().split_whitespace().collect();
+                            let command = words.get(0).unwrap_or(&"");
 
-                        match *command {
-                            "/help" => {
-                                handle_help_command(&mut write_half, &line).await;
-                            },
-                            "/create_room" => {
-                                handle_create_room_command(&mut write_half, &line, &username, rooms.clone()).await;
-                            },
-                            "/join_room" => {
-                                handle_join_room_command(&mut write_half, &line, &username, addr, rooms.clone(), users.clone()).await;
-                            },
-                            "/leave_room" => {
-                                handle_leave_room_command(&mut write_half, &line, &username, rooms.clone(), users.clone()).await;
-                            },
-                            "/m_room" => {
-                                handle_m_room_command(&mut write_half, &line, &username, addr, tx.clone(), rooms.clone()).await;
-                            },
-                            "/view_users" => {
-                                handle_view_users_command(&mut write_half, &line, &username, rooms.clone()).await;
-                            },
-                            "/view_rooms" => {
-                                let rooms_guard = rooms.lock().await;
-                                for room in rooms_guard.iter() {
-                                    write_half
-                                        .write_all(format!("[{}]\n", room.name).as_bytes())
-                                        .await
-                                        .unwrap();
+                            match *command {
+                                "/help" => {
+                                    handle_help_command(&mut write_half, &line).await;
+                                },
+                                "/create_room" => {
+                                    handle_create_room_command(&mut write_half, &line, &username, rooms.clone()).await;
+                                },
+                                "/join_room" => {
+                                    handle_join_room_command(&mut write_half, &line, &username, addr, rooms.clone(), users.clone()).await;
+                                },
+                                "/leave_room" => {
+                                    handle_leave_room_command(&mut write_half, &line, &username, rooms.clone(), users.clone()).await;
+                                },
+                                "/m_room" => {
+                                    handle_m_room_command(&mut write_half, &line, &username, addr, tx.clone(), rooms.clone()).await;
+                                },
+                                "/view_users" => {
+                                    handle_view_users_command(&mut write_half, &line, &username, rooms.clone()).await;
+                                },
+                                "/view_rooms" => {
+                                    let rooms_guard = rooms.lock().await;
+                                    for room in rooms_guard.iter() {
+                                        write_half
+                                            .write_all(format!("[{}]\n", room.name).as_bytes())
+                                            .await
+                                            .unwrap();
+                                    }
+                                },
+                                "/list" => {
+                                    handle_list_command(&mut write_half, users.clone()).await;
+                                },
+                                "/report" => {
+                                    if let Some(reported_user) = words.get(1) {
+                                        handle_report_command(&mut write_half, reported_user, &username, users.clone()).await;
+                                    } else {
+                                        println!("User {} attempted to report, but no username was provided", username);
+                                    }
+                                },
+                                "/pm" => {
+                                    let mut parts = line.trim().split_whitespace();
+                                    parts.next(); // skip /pm
+                                    let recipient = parts.next().unwrap();
+                                    let message = parts.collect::<Vec<&str>>().join(" ");
+                                    handle_pm_command(&mut write_half, recipient, &message, &username, tx.clone(), users.clone()).await;
+                                },
+                                "/exit" => {
+                                    handle_user_disconnection(&username, &addr, tx.clone(), users.clone()).await;
+                                    break;
+                                },
+                                _ => {
+                                    write_half.write_all(format!("{}\n[i] No such command{}\n\n", color_codes::RED, color_codes::RESET).as_bytes()).await.unwrap();
                                 }
-                            },
-
-                            "/list" => {
-                                handle_list_command(&mut write_half, users.clone()).await;
-                            },
-                            "/report" => {
-                                if let Some(reported_user) = words.get(1) {
-                                    handle_report_command(&mut write_half, reported_user, &username, users.clone()).await;
-                                } else {
-                                    println!("User {} attempted to report, but no username was provided", username);
-                                }
-                            },
-                            "/pm" => {
-                                let mut parts = line.trim().split_whitespace();
-                                parts.next(); // skip /pm
-                                let recipient = parts.next().unwrap();
-                                let message = parts.collect::<Vec<&str>>().join(" ");
-                                handle_pm_command(&mut write_half, recipient, &message, &username, tx.clone(), users.clone()).await;
-                            },
-                            "/exit" => {
-                                handle_user_disconnection(&username, &addr, tx.clone(), users.clone()).await;
-                                break;
-                            },
-                            _ => {
-                                println!("Broadcasting message from {}: {}", username, line);
-                                let msg_with_username = format!("[glb] [{}] {}", username, line);
-                                tx.send((msg_with_username.clone(), addr)).unwrap();
-                            }
-                        };
+                            };
+                        } else {
+                            println!("Broadcasting message from {}: {}", username, line);
+                            let msg_with_username = format!("[glb] [{}] {}", username, line);
+                            tx.send((msg_with_username.clone(), addr)).unwrap();
+                        }
 
                         line.clear();
                         continue;
