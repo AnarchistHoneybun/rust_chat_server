@@ -1,8 +1,10 @@
 use crate::{Room, UserInfo};
+use crate::color_codes;
 use std::sync::Arc;
 use tokio::io::AsyncWriteExt;
 use tokio::net::tcp::WriteHalf;
 use tokio::sync::{broadcast, Mutex as TokioMutex};
+
 
 
 pub(crate) async fn handle_create_room_command(
@@ -15,7 +17,10 @@ pub(crate) async fn handle_create_room_command(
     parts.next(); // skip /create
     if let Some(room_name) = parts.next() {
         if room_name == "glb" || room_name == "adm" {
-            write_half.write_all(b"Room name 'glb' or 'adm' is reserved\n").await.unwrap();
+            write_half
+                .write_all(b"Room name 'glb' or 'adm' is reserved\n")
+                .await
+                .unwrap();
         } else {
             let room = Room {
                 name: room_name.to_string(),
@@ -27,7 +32,10 @@ pub(crate) async fn handle_create_room_command(
             println!("Room {} created by {}", room_name, username);
         }
     } else {
-        write_half.write_all(b"No room name provided\n").await.unwrap();
+        write_half
+            .write_all(b"No room name provided\n")
+            .await
+            .unwrap();
     }
 }
 
@@ -59,14 +67,23 @@ pub(crate) async fn handle_join_room_command(
             drop(users_guard);
             println!("User {} joined room {}", username, room_name);
             // write to user that they joined the room
-            write_half.write_all(format!("You joined room {}\n", room_name).as_bytes()).await.unwrap();
+            write_half
+                .write_all(format!("You joined room {}\n", room_name).as_bytes())
+                .await
+                .unwrap();
         } else {
             println!("Room {} does not exist", room_name);
             // write to user that the room does not exist
-            write_half.write_all(format!("Room {} does not exist\n", room_name).as_bytes()).await.unwrap();
+            write_half
+                .write_all(format!("Room {} does not exist\n", room_name).as_bytes())
+                .await
+                .unwrap();
         }
     } else {
-        write_half.write_all(b"No room name provided\n").await.unwrap();
+        write_half
+            .write_all(b"No room name provided\n")
+            .await
+            .unwrap();
     }
 }
 
@@ -95,17 +112,29 @@ pub(crate) async fn handle_leave_room_command(
                 drop(users_guard);
                 println!("User {} left room {}", username, room_name);
                 // write to user that they left the room
-                write_half.write_all(format!("You left room {}\n", room_name).as_bytes()).await.unwrap();
+                write_half
+                    .write_all(format!("You left room {}\n", room_name).as_bytes())
+                    .await
+                    .unwrap();
             } else {
-                write_half.write_all(b"[i] You are not a member of this room\n").await.unwrap();
+                write_half
+                    .write_all(b"[i] You are not a member of this room\n")
+                    .await
+                    .unwrap();
             }
         } else {
             println!("Room {} does not exist", room_name);
             // write to user that the room does not exist
-            write_half.write_all(format!("Room {} does not exist\n", room_name).as_bytes()).await.unwrap();
+            write_half
+                .write_all(format!("Room {} does not exist\n", room_name).as_bytes())
+                .await
+                .unwrap();
         }
     } else {
-        write_half.write_all(b"No room name provided\n").await.unwrap();
+        write_half
+            .write_all(b"No room name provided\n")
+            .await
+            .unwrap();
     }
 }
 
@@ -126,13 +155,19 @@ pub(crate) async fn handle_m_room_command(
     if let Some(room) = room {
         let user_in_room = room.users.iter().find(|u| u.username == username);
         if let Some(_user_in_room) = user_in_room {
-            let msg_with_username = format!("[{}] [{}] {}\n",room_name, username, message);
+            let msg_with_username = format!("[{}] [{}] {}\n", room_name, username, message);
             tx.send((msg_with_username.clone(), addr)).unwrap();
         } else {
-            write_half.write_all(b"[i] You are not a member of this room\n").await.unwrap();
+            write_half
+                .write_all(b"[i] You are not a member of this room\n")
+                .await
+                .unwrap();
         }
     } else {
-        write_half.write_all(b"Room does not exist\n").await.unwrap();
+        write_half
+            .write_all(b"Room does not exist\n")
+            .await
+            .unwrap();
     }
 }
 
@@ -157,10 +192,16 @@ pub(crate) async fn handle_view_users_command(
                     .unwrap();
             }
         } else {
-            write_half.write_all(b"[i] Member lists are private. Join room to view.\n").await.unwrap();
+            write_half
+                .write_all(b"[i] Member lists are private. Join room to view.\n")
+                .await
+                .unwrap();
         }
     } else {
-        write_half.write_all(b"Room does not exist\n").await.unwrap();
+        write_half
+            .write_all(b"Room does not exist\n")
+            .await
+            .unwrap();
     }
 }
 pub(crate) async fn handle_list_command(
@@ -212,17 +253,66 @@ pub(crate) async fn handle_pm_command(
     }
 }
 
-pub(crate) async fn handle_help_command(write_half: &mut WriteHalf<'_>) {
-    let help_text = "/list - List all connected users
-/pm <username> <message> - Send a private message to any connected user
-/report <username> - Report a user to the server admin
-/exit - Disconnect from the server
-/create_room <room_name> - Create a new chat room
-/join_room <room_name> - Join an existing chat room
-/leave_room <room_name> - Leave a chat room
-/view_rooms - View all chat rooms
-/view_users <room_name> - View users in a specific chat room
-/m_room <room_name> <message> - Send a message to all users in a specific room\n";
+pub(crate) async fn handle_help_command(write_half: &mut WriteHalf<'_>, line: &str) {
+    let mut parts = line.trim().split_whitespace();
+    parts.next(); // skip /help
 
-    write_half.write_all(help_text.as_bytes()).await.unwrap();
+    while let Some(command) = parts.next() {
+        match command {
+            "/create_room" => {
+                write_half.write_all(format!("{}\n/create_room <room_name> - Create a new chat room.\nUse an underscore between multi-word room names.\nRoom names 'glb' and 'adm' are reserved.\n{}\n", color_codes::YELLOW,color_codes::RESET).as_bytes())
+                    .await
+                    .unwrap();
+            }
+            "/join_room" => {
+                write_half.write_all(format!("{}\n/join_room <room_name> - Join an existing chat room.\nYou must provide a valid room name.\nUse '/view_rooms' to list available rooms.\n{}\n", color_codes::YELLOW,color_codes::RESET).as_bytes())
+                    .await
+                    .unwrap();
+            }
+            "/view_rooms" => {
+                write_half.write_all(format!("{}\n/view_rooms - View all chat rooms.\n{}\n", color_codes::YELLOW,color_codes::RESET).as_bytes())
+                    .await
+                    .unwrap();
+            }
+            "/leave_room" => {
+                write_half.write_all(format!("{}\n/leave_room <room_name> - Leave a chat room.\nYou must be a member of the room to leave it.\n{}\n", color_codes::YELLOW,color_codes::RESET).as_bytes())
+                    .await
+                    .unwrap();
+            }
+            "/m_room" => {
+                write_half.write_all(format!("{}\n/m_room <room_name> <message> - Send a message to all users in a specific room.\nYou must be a member of the room to send a message.\n{}\n", color_codes::YELLOW,color_codes::RESET).as_bytes())
+                    .await
+                    .unwrap();
+            }
+            "/view_users" => {
+                write_half.write_all(format!("{}\n/view_users <room_name> - View users in a specific chat room.\nYou must be a member of the room to view its users.\n{}\n", color_codes::YELLOW,color_codes::RESET).as_bytes())
+                    .await
+                    .unwrap();
+            }
+            "/list" => {
+                write_half.write_all(format!("{}\n/list - List all connected users.\n{}\n", color_codes::YELLOW,color_codes::RESET).as_bytes())
+                    .await
+                    .unwrap();
+            }
+            "/report" => {
+                write_half.write_all(format!("{}\n/report <username> - Report a user to the server admin.\nYou must provide a valid username.\n{}\n", color_codes::YELLOW,color_codes::RESET).as_bytes())
+                    .await
+                    .unwrap();
+            }
+            "/pm" => {
+                write_half.write_all(format!("{}\n/pm <username> <message> - Send a private message to any connected user.\nYou must provide a valid username and a message.\n{}\n", color_codes::YELLOW,color_codes::RESET).as_bytes())
+                    .await
+                    .unwrap();
+            }
+            "/exit" => {
+                write_half.write_all(format!("{}\n/exit - Disconnect from the server{}\n\n", color_codes::YELLOW,color_codes::RESET).as_bytes())
+                    .await
+                    .unwrap();
+            }
+            _ => {
+                write_half.write_all(format!("{}\nNo such command{}\n\n", color_codes::RED, color_codes::RESET).as_bytes()).await.unwrap();
+                break;
+            }
+        }
+    }
 }
