@@ -18,7 +18,7 @@ pub(crate) async fn handle_create_room_command(
     if let Some(room_name) = parts.next() {
         if room_name == "glb" || room_name == "adm" {
             write_half
-                .write_all(b"Room name 'glb' or 'adm' is reserved\n")
+                .write_all(format!("\n{}[i] Room name 'glb' and 'adm' are reserved{}\n\n", color_codes::RED, color_codes::RESET).as_bytes())
                 .await
                 .unwrap();
         } else {
@@ -75,7 +75,7 @@ pub(crate) async fn handle_join_room_command(
             println!("Room {} does not exist", room_name);
             // write to user that the room does not exist
             write_half
-                .write_all(format!("Room {} does not exist\n", room_name).as_bytes())
+                .write_all(format!("{}Room {} does not exist{}\n\n",color_codes::RED, room_name, color_codes::RESET).as_bytes())
                 .await
                 .unwrap();
         }
