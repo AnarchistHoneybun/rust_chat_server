@@ -33,7 +33,7 @@ pub(crate) async fn handle_create_room_command(
         }
     } else {
         write_half
-            .write_all(b"No room name provided\n")
+            .write_all(format!("\n{}[i] No room name provided{}\n\n",color_codes::YELLOW, color_codes::RESET).as_bytes())
             .await
             .unwrap();
     }
@@ -75,7 +75,7 @@ pub(crate) async fn handle_join_room_command(
             println!("Room {} does not exist", room_name);
             // write to user that the room does not exist
             write_half
-                .write_all(format!("{}Room {} does not exist{}\n\n",color_codes::RED, room_name, color_codes::RESET).as_bytes())
+                .write_all(format!("\n{}Room {} does not exist{}\n\n",color_codes::RED, room_name, color_codes::RESET).as_bytes())
                 .await
                 .unwrap();
         }
@@ -132,7 +132,7 @@ pub(crate) async fn handle_leave_room_command(
         }
     } else {
         write_half
-            .write_all(b"No room name provided\n")
+            .write_all(format!("\n{}[i] No room name provided{}\n\n",color_codes::YELLOW, color_codes::RESET).as_bytes())
             .await
             .unwrap();
     }
